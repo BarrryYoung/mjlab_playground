@@ -30,6 +30,7 @@ import time
 from pathlib import Path
 
 import viser
+import yaml
 from mjlab.tasks.registry import load_rl_cfg
 from mjlab.viewer.viser.viewer import ViserPlayViewer, format_time_ago
 
@@ -40,6 +41,28 @@ LOG_ROOT = REPO / "logs" / "rsl_rl"
 # once per iteration; that is a finer-grained progress signal than counting
 # checkpoints, which only land every `save_interval` steps.
 _ITER_RE = re.compile(r"Learning iteration\s+(\d+)/(\d+)")
+
+
+class _LooseLoader(yaml.SafeLoader):
+  """Reads a dumped env config without importing the classes it names.
+
+  train.py writes params/env.yaml with python/object tags. Loading those with
+  yaml.unsafe_load re-imports every class, which breaks on older runs whose
+  config names symbols mjlab has since moved. We only want the numbers, so
+  every unknown tag collapses to a plain container.
+  """
+
+
+def _loose(loader, suffix, node):  # noqa: ARG001
+  if isinstance(node, yaml.MappingNode):
+    return loader.construct_mapping(node, deep=True)
+  if isinstance(node, yaml.SequenceNode):
+    return loader.construct_sequence(node, deep=True)
+  return loader.construct_scalar(node)
+
+
+_LooseLoader.add_multi_constructor("", _loose)
+_LooseLoader.add_multi_constructor("tag:yaml.org,2002:python/object", _loose)
 
 
 def _dash(name: str) -> str:
@@ -91,10 +114,12 @@ class RewardLabViewer(ViserPlayViewer):
     self._train: subprocess.Popen | None = None
     self._run_dir: Path | None = None
     self._stock_load = None
+    self._lab_snapshot: dict[tuple[str, str], float] | None = None
     self._last_line = ""
     self._iter = 0
     self._total_iters = 0
-    self._overrides: list[tuple[str, object, float, object, str]] = []
+    # (term name, cli flag, slider handle, default value, term cfg, field)
+    self._overrides: list[tuple[str, str, object, float, object, str]] = []
 
     self._experiment = load_rl_cfg(self.task_id).experiment_name
     self._build_panel()
@@ -104,13 +129,25 @@ class RewardLabViewer(ViserPlayViewer):
 
   def _build_panel(self) -> None:
     gui = self._server.gui
-    rewards = self.env.unwrapped.cfg.rewards
+    # RewardManager deepcopies the cfg dict it is handed, and computes from
+    # that copy -- editing env.cfg.rewards would have no effect on the running
+    # reward. Bind to the manager's own dict, whose values are the very objects
+    # in its _term_cfgs list.
+    rewards = self.env.unwrapped.reward_manager.cfg
 
     with self._tabs.add_tab("Reward Lab", icon=viser.Icon.FLASK):
       gui.add_markdown(
         "Sliders retune the **live** reward (bars react, gait does not) "
-        "and seed the next training run."
+        "and seed the next training run.\n\n"
+        "Switch between the config the selected run was **trained** with and "
+        "the one you are **currently** editing."
       )
+
+      self._load_run_btn = gui.add_button("Training-time reward config")
+      self._restore_btn = gui.add_button("Current reward config", disabled=True)
+      self._weights_note = gui.add_html("")
+      self._load_run_btn.on_click(lambda _: self.load_run_weights())
+      self._restore_btn.on_click(lambda _: self.restore_lab_weights())
 
       for term_name in sorted(rewards):
         term = rewards[term_name]
@@ -164,22 +201,99 @@ class RewardLabViewer(ViserPlayViewer):
 
     @handle.on_update
     def _(_) -> None:
-      # The reward manager holds a reference to this cfg object and re-reads
-      # weight/params every step, so the edit lands on the next frame.
-      if field == "weight":
-        term.weight = float(handle.value)
-      else:
-        term.params[field] = float(handle.value)
+      # compute() re-reads weight and params off this object every step, so the
+      # edit lands on the next frame.
+      self._set(term, field, float(handle.value))
 
-    self._overrides.append((flag, handle, default, term, field))
+    self._overrides.append((term_name, flag, handle, default, term, field))
+
+  def _set(self, term, field: str, value: float) -> None:
+    if field == "weight":
+      term.weight = value
+    else:
+      term.params[field] = value
 
   def reset_sliders(self) -> None:
-    for _, handle, default, term, field in self._overrides:
+    for _, _, handle, default, term, field in self._overrides:
       handle.value = default
-      if field == "weight":
-        term.weight = default
-      else:
-        term.params[field] = default
+      self._set(term, field, default)
+
+  # ── swapping in a run's training-time weights ───────────────────
+
+  @staticmethod
+  def _read_run_weights(run_dir: Path) -> dict[tuple[str, str], float]:
+    """Recover the reward weights a run was trained with.
+
+    train.py dumps params/env.yaml for every run, so this works for runs that
+    were never launched from here.
+    """
+    path = run_dir / "params" / "env.yaml"
+    if not path.exists():
+      return {}
+    with path.open() as f:
+      dumped = yaml.load(f, Loader=_LooseLoader)
+    values: dict[tuple[str, str], float] = {}
+    for name, term in (dumped or {}).get("rewards", {}).items():
+      if not isinstance(term, dict):
+        continue
+      if _is_tunable(term.get("weight")):
+        values[(name, "weight")] = float(term["weight"])
+      for param, value in (term.get("params") or {}).items():
+        if _is_tunable(value):
+          values[(name, param)] = float(value)
+    return values
+
+  def _apply(self, values: dict[tuple[str, str], float]) -> int:
+    """Push a set of values onto the sliders and the live reward terms."""
+    applied = 0
+    for term_name, _, handle, _, term, field in self._overrides:
+      value = values.get((term_name, field))
+      if value is None:
+        continue
+      handle.value = value
+      # Assigning .value does not fire on_update, so mutate the term directly.
+      self._set(term, field, value)
+      applied += 1
+    return applied
+
+  def _note(self, text: str, color: str = "#888") -> None:
+    self._weights_note.content = (
+      f'<div style="padding:.3em .4em;font-family:monospace;font-size:.72em;'
+      f'color:{color};">{text}</div>'
+    )
+
+  def load_run_weights(self) -> None:
+    run = self._run_picker.value
+    if not run or run == "—":
+      return
+    run_dir = LOG_ROOT / self._experiment / run
+    values = self._read_run_weights(run_dir)
+    if not values:
+      self._note(f"{run} has no params/env.yaml", "#f44336")
+      return
+
+    if self._lab_snapshot is None:
+      self._lab_snapshot = {
+        (term_name, field): float(handle.value)
+        for term_name, _, handle, _, _, field in self._overrides
+      }
+
+    applied = self._apply(values)
+    total = len(self._overrides)
+    missing = total - applied
+    detail = f" ({missing} not in this run)" if missing else ""
+    self._note(
+      f"training-time config from {run} — {applied}/{total} values{detail}", "#4caf50"
+    )
+    self._restore_btn.disabled = False
+
+  def restore_lab_weights(self) -> None:
+    if self._lab_snapshot is None:
+      return
+    self._apply(self._lab_snapshot)
+    self._lab_snapshot = None
+    self._note("current config — the values you were editing")
+    self._restore_btn.disabled = True
 
   # ── training subprocess ─────────────────────────────────────────
 
@@ -192,7 +306,7 @@ class RewardLabViewer(ViserPlayViewer):
       "--agent.run-name", self._run_name.value,
       "--agent.logger", "tensorboard",
     ]  # fmt: skip
-    for flag, handle, _, _, _ in self._overrides:
+    for _, flag, handle, _, _, _ in self._overrides:
       cmd += [flag, f"{handle.value:g}"]
     return cmd
 
