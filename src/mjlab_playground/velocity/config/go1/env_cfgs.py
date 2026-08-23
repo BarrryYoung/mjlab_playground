@@ -317,8 +317,11 @@ def unitree_go1_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
   cfg.sim.mujoco.ccd_iterations = 500
   cfg.sim.contact_sensor_maxmatch = 500
 
-  # Uneven ground shifts the upright reference off world-vertical.
-  cfg.rewards["upright"].params["terrain_sensor_names"] = ("terrain_scan",)
+  # Uneven ground shifts the upright reference off world-vertical. The term is
+  # optional here -- reward terms get toggled on and off for ablations, so only
+  # patch it when it is actually enabled.
+  if "upright" in cfg.rewards:
+    cfg.rewards["upright"].params["terrain_sensor_names"] = ("terrain_scan",)
 
   self_collision_cfg = ContactSensorCfg(
     name="self_collision",
