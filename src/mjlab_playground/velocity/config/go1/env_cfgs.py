@@ -70,106 +70,106 @@ def _go1_rewards() -> dict[str, RewardTermCfg]:
       weight=2.0,
       params={"command_name": "twist", "std": math.sqrt(0.5)},
     ),
-    # # -- Posture (positive, exp-kernel; doubles as an alive bonus) ----------
-    # "upright": RewardTermCfg(
-    #   func=mdp.upright,
-    #   weight=1.0,
-    #   params={
-    #     "std": math.sqrt(0.2),
-    #     "asset_cfg": SceneEntityCfg("robot", body_names=(_TRUNK_BODY,)),
-    #   },
-    # ),
-    # "pose": RewardTermCfg(
-    #   func=mdp.variable_posture,
-    #   weight=1.0,
-    #   params={
-    #     "asset_cfg": SceneEntityCfg("robot", joint_names=(".*",)),
-    #     "command_name": "twist",
-    #     # Tight when standing, loose when moving: the kernel width sets how
-    #     # far from the default pose the policy may drift without penalty.
-    #     "std_standing": {
-    #       r".*(FR|FL|RR|RL)_(hip|thigh)_joint.*": 0.05,
-    #       r".*(FR|FL|RR|RL)_calf_joint.*": 0.1,
-    #     },
-    #     "std_walking": {
-    #       r".*(FR|FL|RR|RL)_(hip|thigh)_joint.*": 0.3,
-    #       r".*(FR|FL|RR|RL)_calf_joint.*": 0.6,
-    #     },
-    #     "std_running": {
-    #       r".*(FR|FL|RR|RL)_(hip|thigh)_joint.*": 0.3,
-    #       r".*(FR|FL|RR|RL)_calf_joint.*": 0.6,
-    #     },
-    #     "walking_threshold": 0.05,
-    #     "running_threshold": 1.5,
-    #   },
-    # ),
-    # # -- Regularization ----------------------------------------------------
-    # "dof_pos_limits": RewardTermCfg(func=mdp.joint_pos_limits, weight=-1.0),
-    # "action_rate_l2": RewardTermCfg(func=mdp.action_rate_l2, weight=-0.1),
-    # "foot_slip": RewardTermCfg(
-    #   func=mdp.feet_slip,
-    #   weight=-0.1,
-    #   params={
-    #     "sensor_name": "feet_ground_contact",
-    #     "command_name": "twist",
-    #     "command_threshold": 0.05,
-    #     "asset_cfg": SceneEntityCfg("robot", site_names=_SITE_NAMES),
-    #   },
-    # ),
-    # "soft_landing": RewardTermCfg(
-    #   func=mdp.soft_landing,
-    #   weight=-1e-5,
-    #   params={
-    #     "sensor_name": "feet_ground_contact",
-    #     "command_name": "twist",
-    #     "command_threshold": 0.05,
-    #   },
-    # ),
-    # "body_ang_vel": RewardTermCfg(
-    #   func=mdp.body_angular_velocity_penalty,
-    #   weight=0.0,  # Off by default.
-    #   params={"asset_cfg": SceneEntityCfg("robot", body_names=(_TRUNK_BODY,))},
-    # ),
-    # "angular_momentum": RewardTermCfg(
-    #   func=mdp.angular_momentum_penalty,
-    #   weight=0.0,  # Off by default.
-    #   params={"sensor_name": "robot/root_angmom"},
-    # ),
-    # # -- Shaping (gait scaffolding; changes the optimal policy, not just the
-    # #    path to it) --------------------------------------------------------
-    # "foot_clearance": RewardTermCfg(
-    #   func=mdp.feet_clearance,
-    #   weight=-2.0,
-    #   params={
-    #     "target_height": 0.1,
-    #     "height_sensor_name": "foot_height_scan",
-    #     "command_name": "twist",
-    #     "command_threshold": 0.05,
-    #     "asset_cfg": SceneEntityCfg("robot", site_names=_SITE_NAMES),
-    #   },
-    # ),
-    # "foot_swing_height": RewardTermCfg(
-    #   func=mdp.feet_swing_height,
-    #   weight=-0.25,
-    #   params={
-    #     "sensor_name": "feet_ground_contact",
-    #     "height_sensor_name": "foot_height_scan",
-    #     "target_height": 0.1,
-    #     "command_name": "twist",
-    #     "command_threshold": 0.05,
-    #   },
-    # ),
-    # "air_time": RewardTermCfg(
-    #   func=mdp.feet_air_time,
-    #   weight=0.0,  # Off by default.
-    #   params={
-    #     "sensor_name": "feet_ground_contact",
-    #     "threshold_min": 0.05,
-    #     "threshold_max": 0.5,
-    #     "command_name": "twist",
-    #     "command_threshold": 0.5,
-    #   },
-    # ),
+    # -- Posture (positive, exp-kernel; doubles as an alive bonus) ----------
+    "upright": RewardTermCfg(
+      func=mdp.upright,
+      weight=1.0,
+      params={
+        "std": math.sqrt(0.2),
+        "asset_cfg": SceneEntityCfg("robot", body_names=(_TRUNK_BODY,)),
+      },
+    ),
+    "pose": RewardTermCfg(
+      func=mdp.variable_posture,
+      weight=1.0,
+      params={
+        "asset_cfg": SceneEntityCfg("robot", joint_names=(".*",)),
+        "command_name": "twist",
+        # Tight when standing, loose when moving: the kernel width sets how
+        # far from the default pose the policy may drift without penalty.
+        "std_standing": {
+          r".*(FR|FL|RR|RL)_(hip|thigh)_joint.*": 0.05,
+          r".*(FR|FL|RR|RL)_calf_joint.*": 0.1,
+        },
+        "std_walking": {
+          r".*(FR|FL|RR|RL)_(hip|thigh)_joint.*": 0.3,
+          r".*(FR|FL|RR|RL)_calf_joint.*": 0.6,
+        },
+        "std_running": {
+          r".*(FR|FL|RR|RL)_(hip|thigh)_joint.*": 0.3,
+          r".*(FR|FL|RR|RL)_calf_joint.*": 0.6,
+        },
+        "walking_threshold": 0.05,
+        "running_threshold": 1.5,
+      },
+    ),
+    # -- Regularization ----------------------------------------------------
+    "dof_pos_limits": RewardTermCfg(func=mdp.joint_pos_limits, weight=-1.0),
+    "action_rate_l2": RewardTermCfg(func=mdp.action_rate_l2, weight=-0.1),
+    "foot_slip": RewardTermCfg(
+      func=mdp.feet_slip,
+      weight=-0.1,
+      params={
+        "sensor_name": "feet_ground_contact",
+        "command_name": "twist",
+        "command_threshold": 0.05,
+        "asset_cfg": SceneEntityCfg("robot", site_names=_SITE_NAMES),
+      },
+    ),
+    "soft_landing": RewardTermCfg(
+      func=mdp.soft_landing,
+      weight=-1e-5,
+      params={
+        "sensor_name": "feet_ground_contact",
+        "command_name": "twist",
+        "command_threshold": 0.05,
+      },
+    ),
+    "body_ang_vel": RewardTermCfg(
+      func=mdp.body_angular_velocity_penalty,
+      weight=0.0,  # Off by default.
+      params={"asset_cfg": SceneEntityCfg("robot", body_names=(_TRUNK_BODY,))},
+    ),
+    "angular_momentum": RewardTermCfg(
+      func=mdp.angular_momentum_penalty,
+      weight=0.0,  # Off by default.
+      params={"sensor_name": "robot/root_angmom"},
+    ),
+    # -- Shaping (gait scaffolding; changes the optimal policy, not just the
+    #    path to it) --------------------------------------------------------
+    "foot_clearance": RewardTermCfg(
+      func=mdp.feet_clearance,
+      weight=-2.0,
+      params={
+        "target_height": 0.1,
+        "height_sensor_name": "foot_height_scan",
+        "command_name": "twist",
+        "command_threshold": 0.05,
+        "asset_cfg": SceneEntityCfg("robot", site_names=_SITE_NAMES),
+      },
+    ),
+    "foot_swing_height": RewardTermCfg(
+      func=mdp.feet_swing_height,
+      weight=-0.25,
+      params={
+        "sensor_name": "feet_ground_contact",
+        "height_sensor_name": "foot_height_scan",
+        "target_height": 0.1,
+        "command_name": "twist",
+        "command_threshold": 0.05,
+      },
+    ),
+    "air_time": RewardTermCfg(
+      func=mdp.feet_air_time,
+      weight=0.0,  # Off by default.
+      params={
+        "sensor_name": "feet_ground_contact",
+        "threshold_min": 0.05,
+        "threshold_max": 0.5,
+        "command_name": "twist",
+        "command_threshold": 0.5,
+      },
+    ),
   }
 
 
