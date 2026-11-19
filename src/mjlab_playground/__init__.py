@@ -4,3 +4,4 @@ from mjlab_playground.getup.config.go1 import *  # noqa: F401, F403
 from mjlab_playground.getup.config.t1 import *  # noqa: F401, F403
 from mjlab_playground.velocity.config.go1 import *  # noqa: F401, F403
 from mjlab_playground.velocity.config.go2w import *  # noqa: F401, F403
+from mjlab_playground.velocity.config.go2w_kp40kd1 import *  # noqa: F401, F403
