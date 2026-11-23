@@ -4,6 +4,7 @@ from mjlab.tasks.registry import register_mjlab_task
 from mjlab.tasks.velocity.rl import VelocityOnPolicyRunner
 
 from mjlab_playground.velocity.config.go2w.rl_cfg import unitree_go2w_ppo_runner_cfg
+from mjlab_playground.velocity.config.go2w.runner import Go2wVelocityOnPolicyRunner
 
 from .env_cfgs import (
   unitree_go2w_rough_dgv2_m22_env_cfg,
@@ -13,6 +14,8 @@ from .env_cfgs import (
   unitree_go2w_rough_heading_fwd_h6_env_cfg,
   unitree_go2w_rough_heading_h6_env_cfg,
   unitree_go2w_rough_straight_h6_env_cfg,
+  unitree_go2w_rough_straight_h6_lownoise_ht0003_aligned_v1_env_cfg,
+  unitree_go2w_rough_straight_h6_lownoise_ht0003_aligned_v2_env_cfg,
   unitree_go2w_rough_straight_h6_lownoise_ht0003_env_cfg,
 )
 
@@ -101,3 +104,23 @@ for task_id, make_cfg, experiment, make_rl in (
     rl_cfg=make_rl(experiment),
     runner_cls=VelocityOnPolicyRunner,
   )
+
+register_mjlab_task(
+  task_id="Playground-Velocity-Rough-Straight-H6-LowNoise-Ht0003-Aligned-V1-Unitree-Go2W",
+  env_cfg=unitree_go2w_rough_straight_h6_lownoise_ht0003_aligned_v1_env_cfg(),
+  play_env_cfg=unitree_go2w_rough_straight_h6_lownoise_ht0003_aligned_v1_env_cfg(
+    play=True
+  ),
+  rl_cfg=_rl_cfg("playground_go2w_rough_straight_h6_lownoise_ht0003_aligned_v1_velocity"),
+  runner_cls=Go2wVelocityOnPolicyRunner,
+)
+
+register_mjlab_task(
+  task_id="Playground-Velocity-Rough-Straight-H6-LowNoise-Ht0003-Aligned-V2-Unitree-Go2W",
+  env_cfg=unitree_go2w_rough_straight_h6_lownoise_ht0003_aligned_v2_env_cfg(),
+  play_env_cfg=unitree_go2w_rough_straight_h6_lownoise_ht0003_aligned_v2_env_cfg(
+    play=True
+  ),
+  rl_cfg=_rl_cfg("playground_go2w_rough_straight_h6_lownoise_ht0003_aligned_v2_velocity"),
+  runner_cls=Go2wVelocityOnPolicyRunner,
+)

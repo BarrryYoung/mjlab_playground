@@ -36,8 +36,11 @@ from mjlab.tasks.velocity.mdp.velocity_command import UniformVelocityCommandCfg
 from mjlab.utils.noise import UniformNoiseCfg as Unoise
 
 from mjlab_playground.asset_zoo.robots.unitree_go2w.go2w_constants import (
+  ALIGNED_COLLISION,
+  ALIGNED_V2_COLLISION,
   BASE_BODY,
   FOOT_NAMES,
+  GO2W_ALIGNED_ARTICULATION,
   WHEEL_GEOM_NAMES,
   WHEEL_SITE_NAMES,
   get_go2w_robot_cfg,
@@ -821,6 +824,111 @@ def unitree_go2w_flat_isaacobs_cmd_dgv2_m22_lownoise_hullwheel_env_cfg(
     cfg.scene.entities["robot"], spec_fn=get_spec_m22_hull_wheels
   )
   return cfg
+
+
+def unitree_go2w_flat_aligned_v1_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
+  """HullWheel with actuators / joint passives / wheel contact moved toward the real robot.
+
+  See GO2W_ALIGNED_* in go2w_constants.py for the sources. On top of HullWheel:
+    - legs: DcMotor (explicit PD + torque-speed curve), effort 23.7 / calf 35.55,
+      armature 0.01; wheels 23.7 N·m. Command delay 0-10 ms on all joints.
+    - startup randomization (per env): joint frictionloss 0-0.1 N·m (all joints),
+      leg damping 0-0.05, wheel armature 0.002-0.01, wheel torsional friction
+      0.005-0.02 (wheels are condim 4).
+  Unchanged: kp/kd, solver (dt 0.005, iters 10/20, impratio 10), wheel friction
+  0.3-1.2, mass/CoM/encoder randomization.
+  """
+  cfg = unitree_go2w_flat_isaacobs_cmd_dgv2_m22_lownoise_hullwheel_env_cfg(play=play)
+  return apply_aligned_v1(cfg)
+
+
+def apply_aligned_v1(cfg: ManagerBasedRlEnvCfg) -> ManagerBasedRlEnvCfg:
+  """The Aligned-V1 robot changes, applied in place to any Go2W velocity cfg.
+
+  Swaps the robot's actuators, collisions (wheel condim 4) and spec (m22 with
+  hull wheels; geom names unchanged, so contact sensors keep working) and adds
+  the startup randomization of joint passives / wheel torsional friction.
+  """
+  cfg.scene.entities["robot"] = replace(
+    cfg.scene.entities["robot"],
+    spec_fn=get_spec_m22_hull_wheels,
+    articulation=GO2W_ALIGNED_ARTICULATION,
+    collisions=(ALIGNED_COLLISION,),
+  )
+  dr = envs_mdp.dr
+  wheels = SceneEntityCfg("robot", joint_names=(".*_wheel_joint",))
+  cfg.events["joint_frictionloss"] = EventTermCfg(
+    mode="startup",
+    func=dr.joint_friction,
+    params={"asset_cfg": SceneEntityCfg("robot"), "ranges": (0.0, 0.1)},
+  )
+  cfg.events["leg_damping"] = EventTermCfg(
+    mode="startup",
+    func=dr.joint_damping,
+    params={
+      "asset_cfg": SceneEntityCfg("robot", joint_names=_LEG_JOINTS),
+      "ranges": (0.0, 0.05),
+    },
+  )
+  cfg.events["wheel_armature"] = EventTermCfg(
+    mode="startup",
+    func=dr.joint_armature,
+    params={"asset_cfg": wheels, "ranges": (0.002, 0.01)},
+  )
+  cfg.events["wheel_torsional_friction"] = EventTermCfg(
+    mode="startup",
+    func=dr.geom_friction,
+    params={
+      "asset_cfg": SceneEntityCfg("robot", geom_names=WHEEL_GEOM_NAMES),
+      "ranges": (0.005, 0.02),
+      "axes": [1],
+      "shared_random": True,
+    },
+  )
+  return cfg
+
+
+def apply_aligned_v2(cfg: ManagerBasedRlEnvCfg) -> ManagerBasedRlEnvCfg:
+  """Aligned-V1 plus wheel rolling resistance and asymmetric wheel drag.
+
+  - wheels condim 6, rolling friction U(0.0005, 0.003) m per wheel (independent);
+  - wheel torsional friction U(0.005, 0.02) now per wheel too;
+  - wheel joint damping U(0, 0.1) per wheel (v1: 0); frictionloss stays U(0, 0.1)
+    per joint. Independent per-wheel drag gives left/right asymmetry, i.e. steady
+    yaw torques the policy has to correct from the gyro.
+  Ground friction (axis 0) stays shared by the four wheels (same floor).
+  """
+  cfg = apply_aligned_v1(cfg)
+  cfg.scene.entities["robot"] = replace(
+    cfg.scene.entities["robot"], collisions=(ALIGNED_V2_COLLISION,)
+  )
+  dr = envs_mdp.dr
+  wheel_geoms = SceneEntityCfg("robot", geom_names=WHEEL_GEOM_NAMES)
+  cfg.events["wheel_torsional_friction"] = EventTermCfg(
+    mode="startup",
+    func=dr.geom_friction,
+    params={"asset_cfg": wheel_geoms, "ranges": (0.005, 0.02), "axes": [1]},
+  )
+  cfg.events["wheel_rolling_friction"] = EventTermCfg(
+    mode="startup",
+    func=dr.geom_friction,
+    params={"asset_cfg": wheel_geoms, "ranges": (0.0005, 0.003), "axes": [2]},
+  )
+  cfg.events["wheel_damping"] = EventTermCfg(
+    mode="startup",
+    func=dr.joint_damping,
+    params={
+      "asset_cfg": SceneEntityCfg("robot", joint_names=(".*_wheel_joint",)),
+      "ranges": (0.0, 0.1),
+    },
+  )
+  return cfg
+
+
+def unitree_go2w_flat_aligned_v2_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
+  """HullWheel + apply_aligned_v2 (see there)."""
+  cfg = unitree_go2w_flat_isaacobs_cmd_dgv2_m22_lownoise_hullwheel_env_cfg(play=play)
+  return apply_aligned_v2(cfg)
 
 
 # Real robot weighs 22.0 kg (battery 2.5 kg + lidar/bracket, Jetson carrier,

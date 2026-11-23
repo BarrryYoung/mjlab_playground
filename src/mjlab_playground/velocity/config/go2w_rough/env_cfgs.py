@@ -31,6 +31,8 @@ from mjlab.utils.noise import UniformNoiseCfg as Unoise
 
 from mjlab_playground.velocity import mdp
 from mjlab_playground.velocity.config.go2w.env_cfgs import (
+  apply_aligned_v1,
+  apply_aligned_v2,
   _make_go2w_base_cfg,
   unitree_go2w_flat_isaacobs_cmd_dgv2_m22_env_cfg,
 )
@@ -416,3 +418,27 @@ def unitree_go2w_rough_straight_h6_lownoise_ht0003_env_cfg(
   cfg.rewards["hip_torques_l2"].weight = -0.003
   cfg.rewards["joint_torques_l2"].weight = 0.0
   return cfg
+
+
+def unitree_go2w_rough_straight_h6_lownoise_ht0003_aligned_v1_env_cfg(
+  play: bool = False,
+) -> ManagerBasedRlEnvCfg:
+  """Straight-H6-LowNoise-Ht0003 with the flat Aligned-V1 robot (apply_aligned_v1).
+
+  Replaces the climb DC actuators (sat = effort, curve from 0 rad/s; delay 0-15 ms)
+  with the Aligned-V1 ones (Go2HV knee at 13.5 / calf 9 rad/s, effort 23.7 / 35.55,
+  armature 0.01, delay 0-10 ms sticky), switches the wheels to the hull collider
+  with condim 4, and randomizes joint frictionloss / leg damping / wheel armature /
+  wheel torsional friction. Rewards, commands, terrain, obs unchanged.
+  """
+  cfg = unitree_go2w_rough_straight_h6_lownoise_ht0003_env_cfg(play=play)
+  return apply_aligned_v1(cfg)
+
+
+def unitree_go2w_rough_straight_h6_lownoise_ht0003_aligned_v2_env_cfg(
+  play: bool = False,
+) -> ManagerBasedRlEnvCfg:
+  """Straight-H6-LowNoise-Ht0003 with the Aligned-V2 robot (apply_aligned_v2):
+  Aligned-V1 plus wheel rolling friction (condim 6) and per-wheel drag."""
+  cfg = unitree_go2w_rough_straight_h6_lownoise_ht0003_env_cfg(play=play)
+  return apply_aligned_v2(cfg)
