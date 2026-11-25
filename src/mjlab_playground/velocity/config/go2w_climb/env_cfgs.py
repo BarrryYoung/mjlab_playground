@@ -721,6 +721,29 @@ def unitree_go2w_climb_blind_dc_h65_flatpose_bar2_env_cfg(
   return cfg
 
 
+def unitree_go2w_climb_blind_dc_h65_flatpose_bar2_angle45_env_cfg(
+  play: bool = False,
+) -> ManagerBasedRlEnvCfg:
+  """FlatPose-Bar2 with the climbing-column heading noise widened from +-10 to
+  +-45 deg, so the robot meets ledges and bars at up to 45 deg off square.
+
+  v6b (Bar2)@8500: 100% up at 0/15 deg, but at 30 deg the >=80% height fell to
+  0.49 m (0.55 m+ fell 31-62%), at 40 deg to 0.40 m. Observations unchanged.
+  """
+  cfg = unitree_go2w_climb_blind_dc_h65_flatpose_bar2_env_cfg(play=play)
+  cfg.commands["twist"].climb_heading_noise = math.radians(45.0)
+  return cfg
+
+
+def unitree_go2w_climb_blind_dc_h65_flatpose_bar2_angle30_env_cfg(
+  play: bool = False,
+) -> ManagerBasedRlEnvCfg:
+  """Angle45's control: heading noise +-30 deg."""
+  cfg = unitree_go2w_climb_blind_dc_h65_flatpose_bar2_env_cfg(play=play)
+  cfg.commands["twist"].climb_heading_noise = math.radians(30.0)
+  return cfg
+
+
 def unitree_go2w_climb_blind_dc_h65_flatpose_bar2_stop_env_cfg(
   play: bool = False,
 ) -> ManagerBasedRlEnvCfg:

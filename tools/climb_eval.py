@@ -14,7 +14,8 @@ Policy noise is off (mean action), obs noise off unless NOISE=1, no pushes;
 wheel friction is the env's startup draw (0.5-1.0).
 
 usage: python tools/climb_eval.py <task> <run_glob>@<iter> [...]
-env:   VX (0.5)  T (15 s)  E (16)  YAW_DEG (5)  NOISE (0: actor obs noise off, 1: on)
+env:   ANGLE_DEG (0: approach angle off square, held as the heading)
+       VX (0.5)  T (15 s)  E (16)  YAW_DEG (5)  NOISE (0: actor obs noise off, 1: on)
        HRANGE ("lo,hi": override the climbing step range, e.g. 0.45,0.60)
        CALF (calf effort limit override, N m)
 """
@@ -42,6 +43,9 @@ VX = float(os.environ.get("VX", "0.5"))
 T = float(os.environ.get("T", "15"))
 E = int(os.environ.get("E", "16"))
 YAW = math.radians(float(os.environ.get("YAW_DEG", "5")))
+# Approach angle: spawn yawed by ANGLE and hold heading ANGLE, so the robot
+# meets the +x wall at ANGLE off square (0 = square on, as before).
+ANGLE = math.radians(float(os.environ.get("ANGLE_DEG", "0")))
 NOISE = os.environ.get("NOISE", "0") == "1"
 CLIMB = "high_platform"
 LOGS = {
@@ -91,7 +95,7 @@ term = env.command_manager.get_term("twist")
 def _fixed(self, ids):
   self.vel_command_b[ids, 0] = VX
   self.vel_command_b[ids, 1:] = 0.0
-  self.heading_target[ids] = 0.0
+  self.heading_target[ids] = ANGLE
   self.is_heading_env[ids] = True
   self.is_standing_env[ids] = False
   self.is_world_env[ids] = False
@@ -111,7 +115,7 @@ def place():
   terrain.env_origins[:] = terrain.terrain_origins[row_of, col]
   st = robot.data.default_root_state.clone()
   st[:, :3] = terrain.env_origins + torch.tensor([0.0, 0.0, 0.42], device=D)
-  yaw = (torch.rand(N, device=D) * 2 - 1) * YAW
+  yaw = ANGLE + (torch.rand(N, device=D) * 2 - 1) * YAW
   st[:, 3:7] = torch.stack(
     [
       torch.cos(yaw / 2),
@@ -161,7 +165,7 @@ for spec in sys.argv[2:]:
   ck = sorted(base.glob(g))[-1] / f"model_{it}.pt"
   h, tread, top, fell, t_top = run(gb._load_policy(ck))
   print(
-    f"\n{ck.parent.name} @ {it}   VX {VX}  T {T}s  E {E}/row  yaw +-{math.degrees(YAW):.0f} deg  obs noise {NOISE}  HRANGE {os.environ.get('HRANGE', '-')}  CALF {os.environ.get('CALF', '-')}"
+    f"\n{ck.parent.name} @ {it}   VX {VX}  T {T}s  E {E}/row  angle {math.degrees(ANGLE):.0f} yaw +-{math.degrees(YAW):.0f} deg  obs noise {NOISE}  HRANGE {os.environ.get('HRANGE', '-')}  CALF {os.environ.get('CALF', '-')}"
   )
   print("  row   h (m)        tread%  top%  fall%  t_top(s)")
   best = 0.0

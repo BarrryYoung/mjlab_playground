@@ -6,6 +6,8 @@ from mjlab_playground.velocity.config.go2w.rl_cfg import unitree_go2w_ppo_runner
 from .env_cfgs import (
   unitree_go2w_climb_blind_dc_env_cfg,
   unitree_go2w_climb_blind_dc_h65_env_cfg,
+  unitree_go2w_climb_blind_dc_h65_flatpose_bar2_angle30_env_cfg,
+  unitree_go2w_climb_blind_dc_h65_flatpose_bar2_angle45_env_cfg,
   unitree_go2w_climb_blind_dc_h65_flatpose_bar2_env_cfg,
   unitree_go2w_climb_blind_dc_h65_flatpose_bar2_stop_env_cfg,
   unitree_go2w_climb_blind_dc_h65_flatpose_bar_env_cfg,
@@ -91,6 +93,16 @@ _TASKS = (
     "Playground-Velocity-Climb-DC-H65-FlatPose-Bar2-Unitree-Go2W",
     unitree_go2w_climb_dc_h65_flatpose_bar2_env_cfg,
     "playground_go2w_climb_velocity",
+  ),
+  (
+    "Playground-Velocity-Climb-Blind-DC-H65-FlatPose-Bar2-Angle45-Unitree-Go2W",
+    unitree_go2w_climb_blind_dc_h65_flatpose_bar2_angle45_env_cfg,
+    "playground_go2w_climb_blind_velocity",
+  ),
+  (
+    "Playground-Velocity-Climb-Blind-DC-H65-FlatPose-Bar2-Angle30-Unitree-Go2W",
+    unitree_go2w_climb_blind_dc_h65_flatpose_bar2_angle30_env_cfg,
+    "playground_go2w_climb_blind_velocity",
   ),
   (
     "Playground-Velocity-Climb-Blind-DC-H65-FlatPose-Bar2-Stop-Unitree-Go2W",
