@@ -53,6 +53,17 @@ def column_map(g: str, old_width: int) -> tuple[torch.Tensor, torch.Tensor, int,
   """new column of each old column; for every new column, the old column whose
   Adam second moment it borrows (-1: none, use the row mean); new width; notes."""
   new_cols, borrow, notes = [], [], []
+  # Old inputs that already are the first terms at their full (history) width:
+  # keep them where they are, only the appended terms are new (11-24, e.g. the
+  # rough 342 actor + wheel_vel_pos). Single-frame terms map the same either way.
+  prefix = 0
+  for i, (name, dim, h) in enumerate(layout[g]):
+    prefix += dim
+    if prefix == old_width and any(hh > 1 for _, _, hh in layout[g][: i + 1]):
+      cols = list(range(old_width))
+      borrow = cols + [-1] * sum(d for _, d, _ in layout[g][i + 1 :])
+      notes = [f"+{n}({d})" for n, d, _ in layout[g][i + 1 :]] + ["old kept as is"]
+      return torch.tensor(cols), torch.tensor(borrow), len(borrow), notes
   old_off = new_off = 0
   for name, dim, h in layout[g]:
     per_frame = dim // h
